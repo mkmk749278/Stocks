@@ -21,6 +21,28 @@ LAYER_WEIGHTS: dict[str, float] = {
 }
 
 
+def _redis_options_loader():
+    """Return a sync callable (underlying: str) -> OptionsSnapshot | None.
+
+    Lazily imported so unit tests don't require a live Redis. Used by Celery
+    workers to pull option-chain snapshots cached by the beat task.
+    """
+    import redis as sync_redis
+
+    from app.config import get_settings
+    from app.options_chain_io import REDIS_KEY_FMT, snapshot_from_json
+
+    r = sync_redis.from_url(get_settings().redis_url, decode_responses=True)
+
+    def _load(underlying: str):
+        blob = r.get(REDIS_KEY_FMT.format(underlying=underlying))
+        if blob is None:
+            return None
+        return snapshot_from_json(blob)
+
+    return _load
+
+
 def build_layers() -> list["Layer"]:
     """Instantiate every layer. Stub layers raise NotImplementedError on use."""
     from app.signals.layers.l1_order_flow import OrderFlowLayer
@@ -33,10 +55,15 @@ def build_layers() -> list["Layer"]:
     from app.signals.layers.l8_event_driven import EventDrivenLayer
     from app.signals.layers.l9_macro_india import MacroIndiaLayer
 
+    try:
+        options_loader = _redis_options_loader()
+    except Exception:  # noqa: BLE001 — dev/test env without Redis
+        options_loader = None
+
     return [
         OrderFlowLayer(),
         VolumeProfileLayer(),
-        OptionsFlowLayer(),
+        OptionsFlowLayer(redis_loader=options_loader),
         InstitutionalLayer(),
         MLModelsLayer(),
         StatArbLayer(),
