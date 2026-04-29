@@ -1,0 +1,54 @@
+name: apk-release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Skip if Flutter app missing
+        id: check
+        run: |
+          if [ -d "app_flutter" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Flutter app not yet present in this commit; skipping APK build."
+          fi
+
+      - name: Setup Java 17
+        if: steps.check.outputs.exists == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Flutter
+        if: steps.check.outputs.exists == 'true'
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.x"
+          channel: stable
+
+      - name: Build release APK
+        if: steps.check.outputs.exists == 'true'
+        working-directory: app_flutter
+        run: |
+          flutter pub get
+          flutter build apk --release
+
+      - name: Upload APK to GitHub Release
+        if: steps.check.outputs.exists == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app_flutter/build/app/outputs/flutter-apk/app-release.apk
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
