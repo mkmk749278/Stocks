@@ -11,7 +11,11 @@ celery_app = Celery(
     "axiom",
     broker=_settings.redis_url,
     backend=_settings.redis_url,
-    include=["app.tasks.signal_tasks", "app.tasks.housekeeping"],
+    include=[
+        "app.tasks.signal_tasks",
+        "app.tasks.housekeeping",
+        "app.tasks.options_chain",
+    ],
 )
 
 celery_app.conf.update(
@@ -41,5 +45,10 @@ celery_app.conf.beat_schedule = {
     "refresh-holidays": {
         "task": "app.tasks.housekeeping.refresh_holiday_cache",
         "schedule": crontab(hour=23, minute=30),
+    },
+    # Every minute during market hours: pull NFO option chain into Redis cache
+    "refresh-options-snapshots": {
+        "task": "app.tasks.options_chain.refresh_options_snapshots",
+        "schedule": crontab(minute="*", hour="9-15", day_of_week="mon-fri"),
     },
 }
