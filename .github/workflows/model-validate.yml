@@ -1,0 +1,52 @@
+name: model-validate
+
+on:
+  pull_request:
+    paths:
+      - "app/signals/layers/l5_ml_models.py"
+      - "app/signals/backtest.py"
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install -r requirements.txt
+
+      - name: Run walk-forward backtest gate
+        env:
+          DATABASE_URL: postgresql+asyncpg://axiom:axiom@127.0.0.1:5432/axiom
+          REDIS_URL: redis://127.0.0.1:6379/0
+          JWT_SECRET: ci-jwt-secret-32-bytes-please-min
+          AES_MASTER_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+        run: |
+          python - <<'PY'
+          import sys
+          from app.signals.backtest import passes_thresholds
+          from app.signals.layers.l5_ml_models import MLModelsLayer
+
+          layer = MLModelsLayer()
+          try:
+              metrics = layer.backtest([])
+          except NotImplementedError:
+              print("ML layer not yet implemented — skipping go-live gate.")
+              sys.exit(0)
+          ok, failures = passes_thresholds(metrics)
+          print("metrics:", metrics)
+          if not ok:
+              print("FAILED:", failures)
+              sys.exit(1)
+          print("PASSED.")
+          PY

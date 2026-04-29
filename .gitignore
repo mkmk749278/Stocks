@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.python-version
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Logs / data
+logs/
+*.log
+data/
+*.parquet
+*.csv
+*.sqlite
+*.db
+
+# IDE
+.vscode/
+.idea/
+
+# Test / lint cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flutter (added in later commit)
+app_flutter/build/
+app_flutter/.dart_tool/

@@ -1,0 +1,41 @@
+# Local stateful services for the VPS (Postgres + Redis only).
+# The Python app runs under supervisor on the host, NOT in compose.
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: axiom-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: axiom
+      POSTGRES_PASSWORD: axiom
+      POSTGRES_DB: axiom
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - axiom-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U axiom"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: axiom-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - axiom-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  axiom-pg-data:
+  axiom-redis-data:
