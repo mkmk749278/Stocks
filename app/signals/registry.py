@@ -43,6 +43,24 @@ def _redis_options_loader():
     return _load
 
 
+def _redis_institutional_loader():
+    """Return a sync callable () -> InstitutionalSnapshot | None."""
+    import redis as sync_redis
+
+    from app.config import get_settings
+    from app.institutional_io import REDIS_KEY, snapshot_from_json
+
+    r = sync_redis.from_url(get_settings().redis_url, decode_responses=True)
+
+    def _load():
+        blob = r.get(REDIS_KEY)
+        if blob is None:
+            return None
+        return snapshot_from_json(blob)
+
+    return _load
+
+
 def build_layers() -> list["Layer"]:
     """Instantiate every layer. Stub layers raise NotImplementedError on use."""
     from app.signals.layers.l1_order_flow import OrderFlowLayer
@@ -59,12 +77,16 @@ def build_layers() -> list["Layer"]:
         options_loader = _redis_options_loader()
     except Exception:  # noqa: BLE001 — dev/test env without Redis
         options_loader = None
+    try:
+        inst_loader = _redis_institutional_loader()
+    except Exception:  # noqa: BLE001
+        inst_loader = None
 
     return [
         OrderFlowLayer(),
         VolumeProfileLayer(),
         OptionsFlowLayer(redis_loader=options_loader),
-        InstitutionalLayer(),
+        InstitutionalLayer(redis_loader=inst_loader),
         MLModelsLayer(),
         StatArbLayer(),
         NLPSentimentLayer(),

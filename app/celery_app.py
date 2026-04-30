@@ -15,6 +15,7 @@ celery_app = Celery(
         "app.tasks.signal_tasks",
         "app.tasks.housekeeping",
         "app.tasks.options_chain",
+        "app.tasks.institutional",
     ],
 )
 
@@ -50,5 +51,10 @@ celery_app.conf.beat_schedule = {
     "refresh-options-snapshots": {
         "task": "app.tasks.options_chain.refresh_options_snapshots",
         "schedule": crontab(minute="*", hour="9-15", day_of_week="mon-fri"),
+    },
+    # Mon-Fri 17:30 IST: pull NSE FII/DII + bulk/block deals into Redis
+    "refresh-institutional": {
+        "task": "app.tasks.institutional.refresh",
+        "schedule": crontab(hour=17, minute=30, day_of_week="mon-fri"),
     },
 }
